@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" type="text/css" href="tutor-style.css">
+    <meta charset="UTF-8">
+    <title>Tutor Dashboard</title>
+    <script src="tutor-dashboard.js"></script>
+</head>
+<body>
+    <h1>AP Tutor Dashboard</h1>
+
+    <div id="login-section">
+        <input type="text" id="tutor-id-input" placeholder="Enter your Tutor ID" />
+        <button onclick="login()">Login</button>
+    </div>
+
+    <div id="availability-section" style="display: none;">
+        <p id="current-status">You are currently: <span id="status-text">Offline</span></p>
+        <button id="availability-button" onclick="toggleAvailability()">Go Online</button>
+    </div>
+    
+    <div id="notification-section" style="display: none;">
+        <p id="notification-message"></p>
+        <button onclick="joinZoom()">Join Zoom</button>
+    </div>
+
+    <div id="signup-section">
+        <p>Or sign up to be a tutor:</p>
+        <input type="text" id="tutor-name-input" placeholder="Enter your name" />
+        <input type="text" id="tutor-zoomID-input" placeholder="Enter your Zoom ID" />
+        <p>Select AP subjects you are qualified to Tutor in:</p>
+        <div id="subject-checkboxes">
+            <!-- Checkboxes for subjects will be added here -->
+        </div>
+        <button onclick="signupTutor()">Sign Up to Be a Tutor</button>
+        <p id="signup-message"></p>
+    </div>
+
+    <!-- ... existing code ... -->
+
+    <div id="gig-offer-section" style="display: none;">
+        <p id="gig-offer-message"></p>
+        <button onclick="acceptGig()">Accept</button>
+        <button onclick="declineGig()">Decline</button>
+    </div>
+    <section>
+        <h2>Do you want to get tutored?</h2>
+        <p>If you want to get tutored, visit <a href="https://www.tutoringproject.martinestrin.com/">AP On-Demand Tutoring</a>.</p>
+    </section>
+    <section>
+        <h2>About this Project</h2>
+        <p>This website was developed by Martin Estrin. Martin is a third-year computer science student at the University of Southern California, Viterbi School of Engineering.
+            He is also a Software Engineer specializing in AI Training at Outlier. This semester, Martin is a course producer for CS 170, a first-year computer science class at USC. You can find out more about martin at: <a href="https://www.martinestrin.com/">Martin's Personal Webiste</a>.
+        </p>
+        <p>
+            This project uses HTML, CSS, Node.js and a NoSQL database (MongoDB). This project is meant to demonstrate a peer-to-peer tutoring platform where students who have taken AP classes can provide on-demand tutoring for students in need. To see the project in action, first sign up as a tutor in a given subject.
+            Then, visit , <a href="https://www.tutoringproject.martinestrin.com/">AP On-Demand Tutoring</a>, make a user account, and request to be tutored in the same subject. Using a unique algorithm, the program will pair you with a tutor who is qualified to teach your subject and who is currently online and available.
+        </p>
+    </section>
+
+<!-- ... existing code ... -->
+
+
+</body>
+</html>

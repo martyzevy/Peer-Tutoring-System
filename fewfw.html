@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" type="text/css" href="style.css">
+        <title>AP Tutoring</title>
+        <script>
+            
+            let isLoggedIn = false;
+            let pairingCheckInterval;
+            let user;
+            const subjects = [
+                "AP Calculus AB", "AP Calculus BC", "AP Physics I",
+                "AP Physics II", "AP Physics C", "AP Biology",
+                "AP Chemistry", "AP English Language", "AP English Literature",
+                "AP US History", "AP World History", "AP Macroeconomics",
+                "AP Microeconomics"
+            ];
+
+            
+
+            
+
+            function checkLoginStatus() {
+                // Logic to check if the user is logged in
+                // If logged in, enable the 'Connect to a Tutor' button
+                // This is just a placeholder, replace with actual login check logic
+                var isLoggedIn = false; // Replace this with actual check
+
+                if (isLoggedIn) {
+                    document.getElementById('subject-form').querySelector('.connect-button').disabled = false;
+                } else {
+                    document.getElementById('subject-form').querySelector('.connect-button').disabled = true;
+                }
+            }
+
+            
+
+            function findTutorForSubject(subjectIndex) {
+                console.log(subjectIndex);
+                fetch(`https://aptutor2-28cfb689813f.herokuapp.com/find-tutor/${subjectIndex}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            if(response.status === 404) {
+                                // No tutors available
+                                updateTutorInfo('No tutors are available right now. Please try again later');
+                                return;
+                            } else {
+                                // Other types of errors
+                                throw new Error('An error occurred while fetching tutor data.');
+                            }
+                        }
+                        return response.json();
+                    })
+                    .then(tutor => {
+                        if (tutor) {
+                            // If the tutor is not available
+                            startCheckingForPairing(tutor, subjectIndex);
+                            updateTutorInfo('Please wait. You will be connected with a tutor shortly.');
+                        }
+                    })
+                    .catch(error => {
+                        // This will handle any other errors that aren't caught by the response status checks
+                        updateTutorInfo(`Error: ${error.message}`);
+                    });
+            }
+
+
+            function startCheckingForPairing(tutor, subjectIndex) {
+                if (!tutor) return false;
+    console.log("Started checking for tutor:", tutor.id);
+    if (pairingCheckInterval) clearInterval(pairingCheckInterval);
+
+    let responseReceived = false;
+
+    pairingCheckInterval = setInterval(() => {
+        checkForPairing(tutor, subjectIndex, responseReceived)
+            .then(received => {
+                if (received) {
+                    stopCheckingForPairing();
+                }
+            });
+    }, 5000);
+
+    // Set a timeout for 30 seconds
+    setTimeout(() => {
+        if (!responseReceived) {
+            console.log("No response from tutor within 30 seconds.");
+            //stopCheckingForPairing();
+            updateTutorAvailability(tutor.id);
+            findTutorForSubject(subjectIndex); // Move on to the next tutor
+        }
+    }, 30000);
+}
+
+async function checkForPairing(tutor, subjectIndex, responseReceived) {
+    try {
+        const response = await fetch(`https://aptutor2-28cfb689813f.herokuapp.com/check-tutor-pairing/${tutor.id}`);
+        const data = await response.json();
+
+        if (data.accept) {
+            connectToTutor(tutor, subjectIndex);
+            responseReceived = true; // Tutor has responded
+        } else if (data.decline) {
+            responseReceived = true; // Tutor has responded
+        }
+
+        return responseReceived;
+    } catch (error) {
+        console.error('Error checking for pairing:', error);
+        return false; // In case of error, consider no response received
+    }
+}
+
+            function stopCheckingForPairing() {
+                clearInterval(pairingCheckInterval);
+            }
+
+
+            function connectToTutor(tutor, subjectIndex) {
+                console.log("index =", subjectIndex);
+                const infoDiv = document.getElementById('tutorInfo');
+                const subjectName = subjects[subjectIndex];
+                infoDiv.innerHTML = `You have been connected with <strong>${tutor.name}</strong>, certified ${subjectName} tutor.`;
+
+                const zoomButton = document.createElement('button');
+                zoomButton.classList.add('zoom-button');
+                zoomButton.textContent = 'Join Zoom Meeting';
+                zoomButton.onclick = function() {
+                    window.open(`https://zoom.us/j/${tutor.zoomID}`, '_blank');
+
+                    // Send request to server to trigger email/text
+                    console.log(user);
+                    console.log(user.phone);
+                    fetch(`https://aptutor2-28cfb689813f.herokuapp.com/${user.phone}`, {
+                        method: 'POST'
+                    })
+                    .then(response => response.json())
+                    .then(data => console.log('Notification sent:', data))
+                    .catch(error => console.error('Error sending notification:', error));
+                };
+
+                infoDiv.appendChild(zoomButton);
+                infoDiv.style.display = 'block';
+            }
+
+            function updateTutorInfoAndZoomLink(tutor, subjectIndex) {
+                const infoDiv = document.getElementById('tutorInfo');
+                const subjectName = subjects[subjectIndex];
+                infoDiv.innerHTML = `You have been connected with <strong>${tutor.name}</strong>, certified ${subjectName} tutor.`;
+
+                const zoomButton = document.createElement('button');
+                zoomButton.classList.add('zoom-button');
+                zoomButton.textContent = 'Join Zoom Meeting';
+                zoomButton.onclick = function() {
+                    updateTutorAvailability(tutor.id); // New function to update availability
+                    window.open(`https://zoom.us/j/${tutor.zoomID}`, '_blank');
+                };
+
+                infoDiv.appendChild(zoomButton);
+                infoDiv.style.display = 'block';
+            }
+
+            function updateTutorInfo(message) {
+                const infoDiv = document.getElementById('tutorInfo');
+                infoDiv.textContent = message;
+                infoDiv.style.display = 'block'; // Show the div
+            }
+
+            function updateTutorAvailability(tutorId) {
+                console.log("Updating availability for Tutor ID:", tutorId);
+                fetch(`https://aptutor2-28cfb689813f.herokuapp.com/toggle-tutor-availability${tutorId}`, { method: 'PATCH' })
+                    .then(response => response.json())
+                    .then(data => console.log(data.message))
+                    .catch(error => console.error('Error updating availability:', error));
+            }
+
+            function onConnectButtonClick() {
+                const subjectIndex = document.getElementById('subject').value;
+                findTutorForSubject(subjectIndex);
+            }
+
+            function login() {
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                const errorMessageDiv = document.getElementById('login-error-message');
+
+                if (email === "" || password === ""){
+                    errorMessageDiv.textContent = 'Please complete all fields and try again.';
+                    errorMessageDiv.style.display = 'block';
+                    return;
+                }
+
+                fetch('https://aptutor2-28cfb689813f.herokuapp.com/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        // If the response status is not OK, consider it a failed login
+                        throw new Error('Login failed');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.message) {
+                        // Handle successful login
+                        console.log('Logged in successfully');
+                        isLoggedIn = true;
+                        user = data.person;
+                        checkLoginStatus();
+                        document.getElementById('subject-form').querySelector('.connect-button').disabled = false;
+                        document.getElementById('login-form').style.display = 'none';
+                        errorMessageDiv.style.display = 'none'; // Hide error message
+                    } else {
+                        // Handle login errors
+                        console.log('Login failed:', data.error);
+                        errorMessageDiv.textContent = 'Incorrect credentials. Please try again.';
+                        errorMessageDiv.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error logging in:', error);
+                    errorMessageDiv.textContent = 'Incorrect credentials. Please try again.';
+                    errorMessageDiv.style.display = 'block';
+                });
+            }
+
+
+
+function signup() {
+    const name = document.getElementById('signup-name').value;
+    const email = document.getElementById('signup-email').value;
+    const phone = document.getElementById('signup-phone').value;
+    const password = document.getElementById('signup-password').value;
+
+    const errorMessageDiv = document.getElementById('signup-error-message');
+    console.log("name=", name, "email=", email, "phone=",phone,"pass=",password);
+    if (name === "" || email === "" || phone === "" || password === ""){
+        errorMessageDiv.textContent = 'Please complete all fields and try again.';
+        errorMessageDiv.style.display = 'block';
+        return;
+    }
+    
+    fetch('https://aptutor2-28cfb689813f.herokuapp.com/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, phone, password })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message) {
+            console.log('Signup successful');
+            isLoggedIn = true;
+            user = data.person;
+            checkLoginStatus();
+            document.getElementById('subject-form').querySelector('.connect-button').disabled = false;
+            document.getElementById('signup-form').style.display = 'none';
+        } else {
+            console.log('Signup failed:', data.error);
+        }
+    })
+    .catch(error => console.error('Error signing up:', error));
+}
+            
+            document.addEventListener('DOMContentLoaded', function() {
+                checkLoginStatus(); // Check login status on page load
+            });
+
+        
+    // Initialize event listeners after the DOM is fully loaded
+    document.addEventListener('DOMContentLoaded', function() {
+    // Initialize event listeners after the DOM is fully loaded
+    document.getElementById('show-login-btn').addEventListener('click', function() {
+        document.getElementById('login-form').style.display = 'block';
+        document.getElementById('signup-form').style.display = 'none';
+        document.getElementById('auth-buttons').style.display = 'none';
+    });
+
+    document.getElementById('show-signup-btn').addEventListener('click', function() {
+        document.getElementById('signup-form').style.display = 'block';
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('auth-buttons').style.display = 'none';
+    });
+
+    document.getElementById('login-btn').addEventListener('click', function() {
+        // Implement login logic here
+        //document.getElementById('subject-form').querySelector('.connect-button').disabled = false;
+        //document.getElementById('login-form').style.display = 'none';
+        event.preventDefault();
+        login();
+    });
+
+    document.getElementById('signup-btn').addEventListener('click', function() {
+        // Implement signup logic here
+        //document.getElementById('subject-form').querySelector('.connect-button').disabled = false;
+        //document.getElementById('signup-form').style.display = 'none';
+        event.preventDefault();
+        signup();
+    });
+
+ 
+
+    //onConnectButtonClick();
+
+    function onConnectButtonClick() {
+        const subjectIndex = document.getElementById('subject').value;
+        findTutorForSubject(subjectIndex);
+    }
+
+    // Call this function to check login status and enable/disable the button accordingly
+    checkLoginStatus();
+});
+
+        </script>
+    </head>
+    
+    <body>
+        <h1>AP On-Demand Tutor</h1>
+        <div id="auth-buttons">
+            <button id="show-login-btn">Login</button>
+            <button id="show-signup-btn">Sign Up</button>
+        </div>
+
+        <div id="login-form" style="display: none;">
+            <div id="login-error-message" style="color: red; display: none;"></div>
+            <input type="email" id="login-email" placeholder="Enter your email" />
+            <input type="password" id="login-password" placeholder="Enter your password" />
+            <button id="login-btn">Login</button>
+            
+
+        </div>
+    
+        <!-- Sign Up Section -->
+        <div id="signup-form" style="display: none;">
+            <div id="signup-error-message" style="color: red; display: none;"></div>
+            <input type="text" id="signup-name" placeholder="Full Name" />
+            <input type="email" id="signup-email" placeholder="Email" />
+            <input type="tel" id="signup-phone" placeholder="Phone Number" />
+            <input type="password" id="signup-password" placeholder="Create a Password" />
+            <button id="signup-btn">Sign Up</button>
+        </div>
+
+        <!-- Subject Form -->
+        <form id="subject-form">
+            <label for="subject" class="subject-form">Subject:</label>
+            <select id="subject" name="subject" class="subject-input" required>
+                <option value="0">AP Calculus AB</option>
+                <option value="1">AP Calculus BC</option>
+                <option value="2">AP Physics I</option>
+                <option value="3">AP Physics II</option>
+                <option value="4">AP Physics C</option>
+                <option value="5">AP Biology</option>
+                <option value="6">AP Chemistry</option>
+                <option value="7">AP English Language</option>
+                <option value="8">AP English Literature</option>
+                <option value="9">AP US History</option>
+                <option value="10">AP World History</option>
+                <option value="11">AP Macroeconomics</option>
+                <option value="12">AP Microeconomics</option>
+            </select>
+            <button type="button" class="connect-button" onclick="onConnectButtonClick()" disabled>Connect to a Tutor</button>
+        </form>
+
+        <div id="tutorInfo" class="tutor-info"></div>
+    </body>
+</html>
